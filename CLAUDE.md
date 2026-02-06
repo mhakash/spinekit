@@ -24,6 +24,15 @@ spinekit/
 **Schema Storage**: Table and column definitions are stored in system tables (`_spinekit_tables`, `_spinekit_columns`, etc.) within the database itself, not in files. This allows dynamic runtime manipulation.
 
 **API Generation**: When tables are created/modified via the dashboard, the backend dynamically registers REST endpoints:
+
+Admin endpoints (schema management):
+- `GET /api/admin/schema` - List all tables
+- `GET /api/admin/schema/{tableName}` - Get table schema
+- `POST /api/admin/schema` - Create new table
+- `DELETE /api/admin/schema/{tableName}` - Delete table
+- Schema editing endpoints (see Schema Editing section)
+
+Dynamic data endpoints:
 - `GET /api/{tableName}` - List with pagination, filtering, sorting
 - `GET /api/{tableName}/{id}` - Get single record
 - `POST /api/{tableName}` - Create record
@@ -157,25 +166,25 @@ components/
 
 **Phase 1 - Safe Operations** ✅ Implemented:
 
-1. **Add Column** - `POST /api/_schema/:tableName/columns`
+1. **Add Column** - `POST /api/admin/schema/:tableName/columns`
    - Must be nullable OR have default value
    - Preserves existing data
 
-2. **Delete Column** - `DELETE /api/_schema/:tableName/columns/:columnName`
+2. **Delete Column** - `DELETE /api/admin/schema/:tableName/columns/:columnName`
    - Cannot delete system columns (id, created_at, updated_at)
    - Permanently removes column and data
 
-3. **Update Metadata** - `PATCH /api/_schema/:tableName/columns/:columnName`
+3. **Update Metadata** - `PATCH /api/admin/schema/:tableName/columns/:columnName`
    - Change display name or description
    - No schema/data impact
 
-4. **Remove Constraints** - `DELETE /api/_schema/:tableName/columns/:columnName/constraints/:constraint`
+4. **Remove Constraints** - `DELETE /api/admin/schema/:tableName/columns/:columnName/constraints/:constraint`
    - Remove `required` or `unique` constraints
    - Uses table rebuild for SQLite compatibility
 
 **Phase 2 - Validated Changes** ✅ Partially Implemented:
 
-5. **Rename Column** - `PUT /api/_schema/:tableName/columns/:columnName/rename`
+5. **Rename Column** - `PUT /api/admin/schema/:tableName/columns/:columnName/rename`
    - Preserves all data and constraints
    - Validates new name doesn't conflict
    - Cannot rename system columns

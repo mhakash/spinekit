@@ -36,7 +36,7 @@ app.get("/api", async (c) => {
     message: "SpineKit API",
     version: "0.1.0",
     endpoints: {
-      schema: "/api/_schema",
+      admin: "/api/admin/schema",
       tables: tables.map((t) => ({
         name: t.name,
         displayName: t.displayName,
@@ -46,8 +46,8 @@ app.get("/api", async (c) => {
   });
 });
 
-// Schema management routes
-app.route("/api/_schema", createSchemaRoutes(schemaService));
+// Admin routes - schema management
+app.route("/api/admin/schema", createSchemaRoutes(schemaService));
 
 // Dynamic routing middleware for table data
 // This allows tables created at runtime to have their routes available immediately

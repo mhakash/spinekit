@@ -39,22 +39,22 @@ class ApiClient {
 
   // Schema endpoints
   async getTables(): Promise<{ tables: TableSchema[] }> {
-    return this.request("/_schema");
+    return this.request("/api/admin/schema");
   }
 
   async getTable(tableName: string): Promise<{ table: TableSchema }> {
-    return this.request(`/_schema/${tableName}`);
+    return this.request(`/api/admin/schema/${tableName}`);
   }
 
   async createTable(data: TableSchemaInput): Promise<{ table: TableSchema }> {
-    return this.request("/_schema", {
+    return this.request("/api/admin/schema", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
   async deleteTable(tableName: string): Promise<{ message: string }> {
-    return this.request(`/_schema/${tableName}`, {
+    return this.request(`/api/admin/schema/${tableName}`, {
       method: "DELETE",
     });
   }
@@ -72,14 +72,14 @@ class ApiClient {
       description?: string;
     }
   ): Promise<{ table: TableSchema }> {
-    return this.request(`/_schema/${tableName}/columns`, {
+    return this.request(`/api/admin/schema/${tableName}/columns`, {
       method: "POST",
       body: JSON.stringify(fieldDefinition),
     });
   }
 
   async deleteColumn(tableName: string, columnName: string): Promise<{ table: TableSchema }> {
-    return this.request(`/_schema/${tableName}/columns/${columnName}`, {
+    return this.request(`/api/admin/schema/${tableName}/columns/${columnName}`, {
       method: "DELETE",
     });
   }
@@ -89,7 +89,7 @@ class ApiClient {
     columnName: string,
     updates: { displayName?: string; description?: string }
   ): Promise<{ table: TableSchema }> {
-    return this.request(`/_schema/${tableName}/columns/${columnName}`, {
+    return this.request(`/api/admin/schema/${tableName}/columns/${columnName}`, {
       method: "PATCH",
       body: JSON.stringify(updates),
     });
@@ -100,7 +100,7 @@ class ApiClient {
     columnName: string,
     constraint: "required" | "unique"
   ): Promise<{ table: TableSchema }> {
-    return this.request(`/_schema/${tableName}/columns/${columnName}/constraints/${constraint}`, {
+    return this.request(`/api/admin/schema/${tableName}/columns/${columnName}/constraints/${constraint}`, {
       method: "DELETE",
     });
   }
@@ -110,7 +110,7 @@ class ApiClient {
     columnName: string,
     newName: string
   ): Promise<{ table: TableSchema }> {
-    return this.request(`/_schema/${tableName}/columns/${columnName}/rename`, {
+    return this.request(`/api/admin/schema/${tableName}/columns/${columnName}/rename`, {
       method: "PUT",
       body: JSON.stringify({ newName }),
     });
