@@ -1,5 +1,6 @@
 {
   "name": "spinekit",
+  "author": "Mehdi Hassan Akash <mhakash211998@gmail.com>",
   "version": "0.1.0",
   "private": true,
   "workspaces": [
