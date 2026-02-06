@@ -165,4 +165,165 @@ export class SQLiteAdapter implements DatabaseAdapter {
     };
     return typeMap[fieldType] || "TEXT";
   }
+
+  /**
+   * Format default value for SQLite
+   */
+  formatDefaultValue(value: any, type: string): string {
+    if (type === "string" || type === "date" || type === "json") {
+      return `'${value}'`;
+    } else if (type === "boolean") {
+      return value ? "1" : "0";
+    } else if (type === "number") {
+      return String(value);
+    }
+    return "NULL";
+  }
+
+  /**
+   * Convert boolean to SQLite representation (0 or 1)
+   */
+  booleanToSQL(value: boolean): number {
+    return value ? 1 : 0;
+  }
+
+  /**
+   * Convert SQLite representation to boolean
+   */
+  booleanFromSQL(value: any): boolean {
+    return value === 1;
+  }
+
+  /**
+   * Create a table with given columns
+   */
+  async createTable(
+    tableName: string,
+    columns: import("./database.adapter").ColumnDefinition[]
+  ): Promise<void> {
+    if (!this.db) throw new Error("Database not connected");
+
+    const columnDefs = [
+      "id TEXT PRIMARY KEY",
+      ...columns.map((col) => {
+        const sqlType = this.mapFieldTypeToSQL(col.type);
+        const constraints: string[] = [];
+
+        if (col.required) constraints.push("NOT NULL");
+        if (col.unique) constraints.push("UNIQUE");
+        if (col.defaultValue !== undefined) {
+          const defaultVal = this.formatDefaultValue(col.defaultValue, col.type);
+          constraints.push(`DEFAULT ${defaultVal}`);
+        }
+
+        return `${col.name} ${sqlType} ${constraints.join(" ")}`.trim();
+      }),
+      "created_at TEXT NOT NULL",
+      "updated_at TEXT NOT NULL",
+    ];
+
+    const sql = `CREATE TABLE ${tableName} (${columnDefs.join(", ")})`;
+    this.db.run(sql);
+  }
+
+  /**
+   * Drop a table
+   */
+  async dropTable(tableName: string): Promise<void> {
+    if (!this.db) throw new Error("Database not connected");
+    this.db.run(`DROP TABLE IF EXISTS ${tableName}`);
+  }
+
+  /**
+   * Add a column to an existing table
+   */
+  async addColumn(
+    tableName: string,
+    column: import("./database.adapter").ColumnDefinition
+  ): Promise<void> {
+    if (!this.db) throw new Error("Database not connected");
+
+    const sqlType = this.mapFieldTypeToSQL(column.type);
+    const constraints: string[] = [];
+
+    if (column.required) constraints.push("NOT NULL");
+    if (column.unique) constraints.push("UNIQUE");
+    if (column.defaultValue !== undefined) {
+      const defaultVal = this.formatDefaultValue(column.defaultValue, column.type);
+      constraints.push(`DEFAULT ${defaultVal}`);
+    }
+
+    const sql = `ALTER TABLE ${tableName} ADD COLUMN ${column.name} ${sqlType} ${constraints.join(" ")}`.trim();
+    this.db.run(sql);
+  }
+
+  /**
+   * Drop a column from a table
+   * Note: SQLite 3.35.0+ supports DROP COLUMN
+   */
+  async dropColumn(tableName: string, columnName: string): Promise<void> {
+    if (!this.db) throw new Error("Database not connected");
+    this.db.run(`ALTER TABLE ${tableName} DROP COLUMN ${columnName}`);
+  }
+
+  /**
+   * Rename a column
+   * Note: SQLite 3.25.0+ supports RENAME COLUMN
+   */
+  async renameColumn(tableName: string, oldName: string, newName: string): Promise<void> {
+    if (!this.db) throw new Error("Database not connected");
+    this.db.run(`ALTER TABLE ${tableName} RENAME COLUMN ${oldName} TO ${newName}`);
+  }
+
+  /**
+   * Remove a constraint from a column
+   * SQLite doesn't support ALTER COLUMN, so we need to rebuild the table
+   */
+  async removeConstraint(
+    tableName: string,
+    columnName: string,
+    constraint: "required" | "unique",
+    allColumns: import("./database.adapter").ColumnDefinition[]
+  ): Promise<void> {
+    if (!this.db) throw new Error("Database not connected");
+
+    const tempTableName = `${tableName}_temp_${Date.now()}`;
+
+    // Create temp table with new schema
+    const columnDefs = [
+      "id TEXT PRIMARY KEY",
+      ...allColumns.map((col) => {
+        const sqlType = this.mapFieldTypeToSQL(col.type);
+        const constraints: string[] = [];
+
+        // Skip the constraint we're removing for the specified column
+        if (col.name === columnName) {
+          if (constraint === "required" && col.unique) {
+            constraints.push("UNIQUE");
+          } else if (constraint === "unique" && col.required) {
+            constraints.push("NOT NULL");
+          }
+        } else {
+          if (col.required) constraints.push("NOT NULL");
+          if (col.unique) constraints.push("UNIQUE");
+        }
+
+        return `${col.name} ${sqlType} ${constraints.join(" ")}`.trim();
+      }),
+      "created_at TEXT NOT NULL",
+      "updated_at TEXT NOT NULL",
+    ];
+
+    this.db.run(`CREATE TABLE ${tempTableName} (${columnDefs.join(", ")})`);
+
+    // Copy data
+    const allColumnNames = ["id", ...allColumns.map((c) => c.name), "created_at", "updated_at"];
+    this.db.run(
+      `INSERT INTO ${tempTableName} (${allColumnNames.join(", ")}) SELECT ${allColumnNames.join(", ")} FROM ${tableName}`
+    );
+
+    // Drop old table and rename temp
+    this.db.run(`DROP TABLE ${tableName}`);
+    this.db.run(`ALTER TABLE ${tempTableName} RENAME TO ${tableName}`);
+  }
 }

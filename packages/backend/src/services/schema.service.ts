@@ -54,8 +54,8 @@ export class SchemaService {
             field.name,
             field.displayName,
             field.type,
-            field.required ? 1 : 0,
-            field.unique ? 1 : 0,
+            this.db.booleanToSQL(field.required || false),
+            this.db.booleanToSQL(field.unique || false),
             field.defaultValue ? JSON.stringify(field.defaultValue) : null,
             field.description || null,
             i,
@@ -76,8 +76,8 @@ export class SchemaService {
         });
       }
 
-      // Create the actual table in the database
-      await this.createPhysicalTable(validated.name, fields);
+      // Create the actual table in the database using adapter
+      await this.db.createTable(validated.name, fields);
 
       await this.db.commit();
 
@@ -168,8 +168,8 @@ export class SchemaService {
     await this.db.beginTransaction();
 
     try {
-      // Drop the physical table
-      await this.db.execute(`DROP TABLE IF EXISTS ${tableName}`);
+      // Drop the physical table using adapter
+      await this.db.dropTable(tableName);
 
       // Delete from _spinekit_tables (cascade will delete fields)
       await this.db.execute("DELETE FROM _spinekit_tables WHERE name = ?", [tableName]);
@@ -204,39 +204,13 @@ export class SchemaService {
       name: field.name,
       displayName: field.display_name,
       type: field.type as any,
-      required: field.required === 1,
-      unique: field.unique_constraint === 1,
+      required: this.db.booleanFromSQL(field.required),
+      unique: this.db.booleanFromSQL(field.unique_constraint),
       defaultValue: field.default_value ? JSON.parse(field.default_value) : undefined,
       description: field.description || undefined,
     }));
   }
 
-  /**
-   * Create the actual database table
-   */
-  private async createPhysicalTable(
-    tableName: string,
-    fields: FieldDefinition[]
-  ): Promise<void> {
-    // Build CREATE TABLE SQL
-    const columns = [
-      "id TEXT PRIMARY KEY",
-      ...fields.map((field) => {
-        const sqlType = this.mapFieldTypeToSQL(field.type);
-        const constraints: string[] = [];
-
-        if (field.required) constraints.push("NOT NULL");
-        if (field.unique) constraints.push("UNIQUE");
-
-        return `${field.name} ${sqlType} ${constraints.join(" ")}`.trim();
-      }),
-      "created_at TEXT NOT NULL",
-      "updated_at TEXT NOT NULL",
-    ];
-
-    const sql = `CREATE TABLE ${tableName} (${columns.join(", ")})`;
-    await this.db.execute(sql);
-  }
 
   /**
    * Add a new column to an existing table
@@ -287,8 +261,8 @@ export class SchemaService {
           validated.name,
           validated.displayName,
           validated.type,
-          validated.required ? 1 : 0,
-          validated.unique ? 1 : 0,
+          this.db.booleanToSQL(validated.required || false),
+          this.db.booleanToSQL(validated.unique || false),
           validated.defaultValue ? JSON.stringify(validated.defaultValue) : null,
           validated.description || null,
           sortOrder,
@@ -297,19 +271,14 @@ export class SchemaService {
         ]
       );
 
-      // Add column to physical table
-      const sqlType = this.mapFieldTypeToSQL(validated.type);
-      const constraints: string[] = [];
-
-      if (validated.required) constraints.push("NOT NULL");
-      if (validated.unique) constraints.push("UNIQUE");
-      if (validated.defaultValue !== undefined) {
-        const defaultVal = this.formatDefaultValue(validated.defaultValue, validated.type);
-        constraints.push(`DEFAULT ${defaultVal}`);
-      }
-
-      const alterSQL = `ALTER TABLE ${tableName} ADD COLUMN ${validated.name} ${sqlType} ${constraints.join(" ")}`.trim();
-      await this.db.execute(alterSQL);
+      // Add column to physical table using adapter
+      await this.db.addColumn(tableName, {
+        name: validated.name,
+        type: validated.type,
+        required: validated.required,
+        unique: validated.unique,
+        defaultValue: validated.defaultValue,
+      });
 
       await this.db.commit();
     } catch (error) {
@@ -350,10 +319,8 @@ export class SchemaService {
         [table.id, columnName]
       );
 
-      // Drop column from physical table
-      // Note: SQLite supports DROP COLUMN in version 3.35.0+ (2021)
-      // Bun uses modern SQLite so this should work
-      await this.db.execute(`ALTER TABLE ${tableName} DROP COLUMN ${columnName}`);
+      // Drop column from physical table using adapter
+      await this.db.dropColumn(tableName, columnName);
 
       await this.db.commit();
     } catch (error) {
@@ -451,21 +418,21 @@ export class SchemaService {
       if (constraint === "required") {
         // Update metadata
         await this.db.execute(
-          "UPDATE _spinekit_fields SET required = 0, updated_at = ? WHERE table_id = ? AND name = ?",
-          [now, table.id, columnName]
+          "UPDATE _spinekit_fields SET required = ?, updated_at = ? WHERE table_id = ? AND name = ?",
+          [this.db.booleanToSQL(false), now, table.id, columnName]
         );
 
-        // Rebuild table without NOT NULL constraint
-        await this.rebuildTableWithoutConstraint(tableName, columnName, "NOT NULL");
+        // Remove constraint from physical table using adapter
+        await this.db.removeConstraint(tableName, columnName, "required", table.fields);
       } else if (constraint === "unique") {
         // Update metadata
         await this.db.execute(
-          "UPDATE _spinekit_fields SET unique_constraint = 0, updated_at = ? WHERE table_id = ? AND name = ?",
-          [now, table.id, columnName]
+          "UPDATE _spinekit_fields SET unique_constraint = ?, updated_at = ? WHERE table_id = ? AND name = ?",
+          [this.db.booleanToSQL(false), now, table.id, columnName]
         );
 
-        // Rebuild table without UNIQUE constraint
-        await this.rebuildTableWithoutConstraint(tableName, columnName, "UNIQUE");
+        // Remove constraint from physical table using adapter
+        await this.db.removeConstraint(tableName, columnName, "unique", table.fields);
       }
 
       await this.db.commit();
@@ -475,71 +442,6 @@ export class SchemaService {
     }
   }
 
-  /**
-   * Helper: Rebuild table without a specific constraint
-   * This is necessary because SQLite doesn't support ALTER COLUMN
-   */
-  private async rebuildTableWithoutConstraint(
-    tableName: string,
-    columnName: string,
-    constraint: string
-  ): Promise<void> {
-    const table = await this.getTable(tableName);
-    if (!table) throw new Error(`Table '${tableName}' does not exist`);
-
-    const tempTableName = `${tableName}_temp_${Date.now()}`;
-
-    // Create temp table with new schema
-    const columns = [
-      "id TEXT PRIMARY KEY",
-      ...table.fields.map((field) => {
-        const sqlType = this.mapFieldTypeToSQL(field.type);
-        const constraints: string[] = [];
-
-        // Skip the constraint we're removing for the specified column
-        if (field.name === columnName) {
-          if (constraint === "NOT NULL" && field.unique) {
-            constraints.push("UNIQUE");
-          } else if (constraint === "UNIQUE" && field.required) {
-            constraints.push("NOT NULL");
-          }
-        } else {
-          if (field.required) constraints.push("NOT NULL");
-          if (field.unique) constraints.push("UNIQUE");
-        }
-
-        return `${field.name} ${sqlType} ${constraints.join(" ")}`.trim();
-      }),
-      "created_at TEXT NOT NULL",
-      "updated_at TEXT NOT NULL",
-    ];
-
-    await this.db.execute(`CREATE TABLE ${tempTableName} (${columns.join(", ")})`);
-
-    // Copy data
-    const allColumns = ["id", ...table.fields.map((f) => f.name), "created_at", "updated_at"];
-    await this.db.execute(
-      `INSERT INTO ${tempTableName} (${allColumns.join(", ")}) SELECT ${allColumns.join(", ")} FROM ${tableName}`
-    );
-
-    // Drop old table and rename temp
-    await this.db.execute(`DROP TABLE ${tableName}`);
-    await this.db.execute(`ALTER TABLE ${tempTableName} RENAME TO ${tableName}`);
-  }
-
-  /**
-   * Helper: Format default value for SQL
-   */
-  private formatDefaultValue(value: any, type: string): string {
-    if (type === "string" || type === "date" || type === "json") {
-      return `'${value}'`;
-    } else if (type === "boolean") {
-      return value ? "1" : "0";
-    } else if (type === "number") {
-      return String(value);
-    }
-    return "NULL";
-  }
 
   /**
    * Rename a column
@@ -607,11 +509,8 @@ export class SchemaService {
         [trimmedNewName, now, table.id, oldColumnName]
       );
 
-      // Rename column in physical table
-      // SQLite 3.25.0+ supports ALTER TABLE RENAME COLUMN
-      await this.db.execute(
-        `ALTER TABLE ${tableName} RENAME COLUMN ${oldColumnName} TO ${trimmedNewName}`
-      );
+      // Rename column in physical table using adapter
+      await this.db.renameColumn(tableName, oldColumnName, trimmedNewName);
 
       await this.db.commit();
     } catch (error) {
@@ -620,23 +519,4 @@ export class SchemaService {
     }
   }
 
-  /**
-   * Map SpineKit field types to SQL types (delegate to adapter if available)
-   */
-  private mapFieldTypeToSQL(fieldType: string): string {
-    // Check if adapter has a mapping method
-    if ("mapFieldTypeToSQL" in this.db && typeof this.db.mapFieldTypeToSQL === "function") {
-      return this.db.mapFieldTypeToSQL(fieldType);
-    }
-
-    // Default mapping
-    const typeMap: Record<string, string> = {
-      string: "TEXT",
-      number: "REAL",
-      boolean: "INTEGER",
-      date: "TEXT",
-      json: "TEXT",
-    };
-    return typeMap[fieldType] || "TEXT";
-  }
 }

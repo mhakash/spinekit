@@ -39,7 +39,7 @@ Dynamic data endpoints:
 - `PUT /api/{tableName}/{id}` - Update record
 - `DELETE /api/{tableName}/{id}` - Delete record
 
-**Database Abstraction**: All database operations go through an adapter interface. SQLite is the initial implementation, with Postgres and others planned. Code must never use database-specific features directly.
+**Database Abstraction**: All database operations go through an adapter interface (`DatabaseAdapter`). SchemaService contains zero database-specific SQL - all DDL operations and type conversions are delegated to the adapter. SQLite is the initial implementation; add Postgres/MySQL by implementing the adapter interface.
 
 **Plugin System**: Future batteries/plugins will be modular packages that can hook into lifecycle events (e.g., before/after table creation, API request/response middleware).
 
