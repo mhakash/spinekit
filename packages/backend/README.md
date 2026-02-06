@@ -1,6 +1,6 @@
 # SpineKit Backend
 
-Dynamic REST API generator with SQLite database.
+Dynamic REST API generator with database-agnostic adapter layer.
 
 ## Quick Start
 
@@ -14,27 +14,27 @@ bun run dev
 # Build for production
 bun run build
 
-# Start production server
-bun run start
+# Run tests
+bun test
 ```
 
 ## API Endpoints
 
-### Schema Management
+### Admin - Schema Management
 
 #### List all tables
 ```bash
-GET /api/_schema
+GET /api/admin/schema
 ```
 
-#### Get table details
+#### Get table schema
 ```bash
-GET /api/_schema/:tableName
+GET /api/admin/schema/:tableName
 ```
 
 #### Create a new table
 ```bash
-POST /api/_schema
+POST /api/admin/schema
 Content-Type: application/json
 
 {
@@ -53,8 +53,7 @@ Content-Type: application/json
       "name": "age",
       "displayName": "Age",
       "type": "number",
-      "required": false,
-      "unique": false
+      "required": false
     }
   ]
 }
@@ -62,12 +61,31 @@ Content-Type: application/json
 
 #### Delete a table
 ```bash
-DELETE /api/_schema/:tableName
+DELETE /api/admin/schema/:tableName
+```
+
+#### Schema Editing Operations
+
+```bash
+# Add column
+POST /api/admin/schema/:tableName/columns
+
+# Delete column
+DELETE /api/admin/schema/:tableName/columns/:columnName
+
+# Rename column
+PUT /api/admin/schema/:tableName/columns/:columnName/rename
+
+# Update column metadata (display name, description)
+PATCH /api/admin/schema/:tableName/columns/:columnName
+
+# Remove constraint (required or unique)
+DELETE /api/admin/schema/:tableName/columns/:columnName/constraints/:constraint
 ```
 
 ### Dynamic Data API
 
-Once a table is created, the following endpoints are automatically available:
+Once a table is created, these endpoints are automatically available:
 
 #### List records
 ```bash
@@ -110,18 +128,18 @@ DELETE /api/:tableName/:id
 
 ## Field Types
 
-- `string` - Text data (TEXT)
-- `number` - Numeric data (REAL)
-- `boolean` - Boolean values (INTEGER: 0 or 1)
-- `date` - Date/timestamp (TEXT in ISO 8601 format)
-- `json` - JSON data (TEXT)
+- `string` - Text data
+- `number` - Numeric data
+- `boolean` - Boolean values
+- `date` - Date/timestamp (ISO 8601 format)
+- `json` - JSON data
 
 ## Auto-generated Fields
 
 Every table automatically includes:
-- `id` (TEXT PRIMARY KEY) - UUID
-- `created_at` (TEXT) - ISO 8601 timestamp
-- `updated_at` (TEXT) - ISO 8601 timestamp
+- `id` - UUID primary key
+- `created_at` - ISO 8601 timestamp
+- `updated_at` - ISO 8601 timestamp
 
 ## Environment Variables
 
@@ -134,11 +152,28 @@ DB_PATH=spinekit.db
 
 ## Architecture
 
-- **Adapter Pattern**: Database-agnostic design with SQLite as the first implementation
-- **Service Layer**: Business logic separated from routing
-- **Dynamic Routing**: Routes are created at runtime when tables are created
-- **Type Safety**: Full TypeScript with shared types from `@spinekit/shared`
+### Database Adapter Pattern
 
-## Examples
+SchemaService contains **zero** database-specific SQL. All DDL operations and type conversions are delegated to the `DatabaseAdapter` interface:
 
-See `../../test-api.sh` and `../../test-crud.sh` for working examples.
+- **DDL Methods**: createTable, dropTable, addColumn, dropColumn, renameColumn, removeConstraint
+- **Type Conversions**: mapFieldTypeToSQL, formatDefaultValue, booleanToSQL, booleanFromSQL
+
+**Current Adapters:**
+- SQLiteAdapter (fully implemented)
+
+**Adding New Databases:**
+Implement the DatabaseAdapter interface for Postgres, MySQL, etc. No changes needed in SchemaService.
+
+### Service Layer
+
+- **SchemaService**: Table/column schema management (54 tests)
+- **DataService**: CRUD operations for table data
+
+### System Tables
+
+Schema definitions stored in database:
+- `_spinekit_tables` - Table metadata
+- `_spinekit_fields` - Column definitions
+
+This allows dynamic runtime table creation without file-based migrations.
