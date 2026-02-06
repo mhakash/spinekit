@@ -17,7 +17,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
     console.log(`✓ Connected to SQLite database: ${this.dbPath}`);
 
     // Enable foreign keys
-    this.db.exec("PRAGMA foreign_keys = ON");
+    this.db.run("PRAGMA foreign_keys = ON");
 
     // Initialize system tables
     await this.initializeSystemTables();
@@ -36,7 +36,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
 
     try {
       const stmt = this.db.query(sql);
-      const results = params ? stmt.all(...params) : stmt.all();
+      const results = params ? stmt.all(...(params as any[])) : stmt.all();
       return results as T[];
     } catch (error) {
       console.error("Query error:", error);
@@ -49,7 +49,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
 
     try {
       const stmt = this.db.query(sql);
-      const result = params ? stmt.run(...params) : stmt.run();
+      const result = params ? stmt.run(...(params as any[])) : stmt.run();
 
       return {
         rows: [],
@@ -65,7 +65,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
     if (!this.db) throw new Error("Database not connected");
     if (this.inTransaction) throw new Error("Transaction already in progress");
 
-    this.db.exec("BEGIN TRANSACTION");
+    this.db.run("BEGIN TRANSACTION");
     this.inTransaction = true;
   }
 
@@ -73,7 +73,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
     if (!this.db) throw new Error("Database not connected");
     if (!this.inTransaction) throw new Error("No transaction in progress");
 
-    this.db.exec("COMMIT");
+    this.db.run("COMMIT");
     this.inTransaction = false;
   }
 
@@ -81,7 +81,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
     if (!this.db) throw new Error("Database not connected");
     if (!this.inTransaction) throw new Error("No transaction in progress");
 
-    this.db.exec("ROLLBACK");
+    this.db.run("ROLLBACK");
     this.inTransaction = false;
   }
 
@@ -118,7 +118,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
     if (!this.db) return;
 
     // Tables table: stores table definitions
-    this.db.exec(`
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS _spinekit_tables (
         id TEXT PRIMARY KEY,
         name TEXT UNIQUE NOT NULL,
@@ -130,7 +130,7 @@ export class SQLiteAdapter implements DatabaseAdapter {
     `);
 
     // Fields table: stores field definitions for each table
-    this.db.exec(`
+    this.db.run(`
       CREATE TABLE IF NOT EXISTS _spinekit_fields (
         id TEXT PRIMARY KEY,
         table_id TEXT NOT NULL,

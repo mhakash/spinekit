@@ -2,12 +2,13 @@
  * Create Table Dialog Component
  */
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Upload } from "lucide-react";
 import { tableSchemaSchema, type TableSchemaInput, type FieldType } from "@spinekit/shared";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -45,6 +46,7 @@ const fieldTypes: { value: FieldType; label: string }[] = [
 export function CreateTableDialog({ open, onOpenChange }: CreateTableDialogProps) {
   const [error, setError] = useState<string>("");
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm({
     resolver: zodResolver(tableSchemaSchema),
@@ -87,15 +89,84 @@ export function CreateTableDialog({ open, onOpenChange }: CreateTableDialogProps
     createMutation.mutate(data as TableSchemaInput);
   });
 
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const importedSchema = JSON.parse(text);
+
+      // Validate the imported schema structure
+      if (!importedSchema.fields || !Array.isArray(importedSchema.fields)) {
+        throw new Error("Invalid schema format: fields array is required");
+      }
+
+      // Reset form with imported data
+      form.reset({
+        name: "",
+        displayName: importedSchema.displayName || "",
+        description: importedSchema.description || "",
+        fields: importedSchema.fields.map((field: any) => ({
+          name: field.name || "",
+          displayName: field.displayName || "",
+          type: field.type || "string",
+          required: field.required || false,
+          unique: field.unique || false,
+          description: field.description || "",
+        })),
+      });
+
+      toast.success("Schema imported", {
+        description: `Loaded ${importedSchema.fields.length} fields from ${file.name}`,
+      });
+      setError("");
+    } catch (err: any) {
+      toast.error("Import failed", {
+        description: err.message || "Failed to parse schema file",
+      });
+      setError("Failed to import schema: " + err.message);
+    }
+
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create New Table</DialogTitle>
-          <DialogDescription>
-            Define your table schema with fields. Each table automatically gets id, created_at, and updated_at fields.
-          </DialogDescription>
+          <div className="pr-8">
+            <DialogTitle>Create New Table</DialogTitle>
+            <DialogDescription>
+              Define your table schema with fields. Each table automatically gets id, created_at, and updated_at fields.
+            </DialogDescription>
+          </div>
+          <div className="flex justify-end mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleImportClick}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Import Schema
+            </Button>
+          </div>
         </DialogHeader>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleFileImport}
+          className="hidden"
+        />
 
         <form onSubmit={onSubmit} className="space-y-6">
           {/* Table Info */}

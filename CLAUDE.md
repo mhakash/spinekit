@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project: SpineKit
 
-A headless backend toolkit that dynamically generates REST APIs from user-defined table schemas. Includes an admin dashboard for managing table structures.
+A headless backend toolkit that dynamically generates REST APIs from user-defined table schemas. Includes an admin dashboard for managing the backend.
 
 ## Architecture Overview
 
@@ -190,11 +190,43 @@ components/
 - Add constraints (with data validation)
 - Relationships (foreign keys)
 
+## Schema Import/Export
+
+**Export Schema:**
+- Export button on table detail page
+- Downloads JSON file with table schema (fields only)
+- File format: `tablename-schema.json`
+
+**Import Schema:**
+- Import button in Create Table dialog
+- Accepts JSON files with schema definitions
+- Validates and populates form fields automatically
+- Reusable templates for common table structures
+
+**JSON Format:**
+```json
+{
+  "displayName": "Users",
+  "description": "User accounts",
+  "fields": [
+    {
+      "name": "username",
+      "displayName": "Username",
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "description": "Unique username"
+    }
+  ]
+}
+```
+
 ## Future TODOs
 
 - [x] Add data browsing/CRUD operations in the dashboard UI
 - [x] Schema editing - Phase 1 (backend)
-- [ ] Schema editing - Phase 1 (frontend UI)
+- [x] Schema editing - Phase 1 (frontend UI)
+- [x] Schema import/export functionality
 - [ ] Support PostgreSQL database adapter
 - [ ] Add field relationship support (foreign keys, one-to-many, many-to-many)
 - [ ] Implement plugin/battery system

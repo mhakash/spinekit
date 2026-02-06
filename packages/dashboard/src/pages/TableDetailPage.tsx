@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Database, Table as TableIcon, Plus, Pencil, Trash2, MoreVertical } from "lucide-react";
+import { ArrowLeft, Database, Table as TableIcon, Plus, Pencil, Trash2, MoreVertical, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -85,6 +85,40 @@ export function TableDetailPage() {
     removeConstraintMutation.mutate({ columnName: column.name, constraint });
   };
 
+  const handleExportSchema = () => {
+    if (!table) return;
+
+    const schemaExport = {
+      displayName: table.displayName,
+      description: table.description || "",
+      fields: table.fields.map((field) => ({
+        name: field.name,
+        displayName: field.displayName,
+        type: field.type,
+        required: field.required || false,
+        unique: field.unique || false,
+        defaultValue: field.defaultValue,
+        description: field.description || "",
+      })),
+    };
+
+    const blob = new Blob([JSON.stringify(schemaExport, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${table.name}-schema.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success("Schema exported", {
+      description: `Schema saved as ${table.name}-schema.json`,
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -155,12 +189,18 @@ export function TableDetailPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link to={`/tables/${table.name}/data`}>
-              <Button size="lg" className="w-full sm:w-auto">
-                <TableIcon className="h-4 w-4 mr-2" />
-                View & Manage Data
+            <div className="flex flex-wrap gap-3">
+              <Link to={`/tables/${table.name}/data`}>
+                <Button size="lg">
+                  <TableIcon className="h-4 w-4 mr-2" />
+                  View & Manage Data
+                </Button>
+              </Link>
+              <Button size="lg" variant="outline" onClick={handleExportSchema}>
+                <Download className="h-4 w-4 mr-2" />
+                Export Schema
               </Button>
-            </Link>
+            </div>
           </CardContent>
         </Card>
 
