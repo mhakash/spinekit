@@ -1,0 +1,19 @@
+{
+  "name": "spinekit",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run dev:backend & bun run dev:dashboard",
+    "dev:backend": "bun run --bun packages/backend/src/index.ts",
+    "dev:dashboard": "bun run --cwd packages/dashboard dev",
+    "build": "bun run --filter='*' build",
+    "test": "bun run --filter='*' test",
+    "clean": "rm -rf packages/*/dist packages/*/node_modules node_modules"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
