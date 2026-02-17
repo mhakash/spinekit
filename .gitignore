@@ -39,3 +39,6 @@ bun.lockb
 
 # Claude Code
 .claude/
+
+# temporary files
+temp/
