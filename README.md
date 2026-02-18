@@ -7,6 +7,7 @@ SpineKit dynamically generates REST APIs from user-defined table schemas. Create
 ## Features
 
 - **Dynamic API Generation** - Create a table, get instant REST endpoints
+- **OpenAPI/Swagger Docs** - Auto-generated API documentation with interactive testing
 - **Admin Dashboard** - Manage tables, columns, and data through a modern UI
 - **Schema Editing** - Add/remove columns, rename fields, modify constraints
 - **Authentication** - Built-in auth with cookies + Bearer tokens for headless APIs
@@ -27,6 +28,7 @@ bun run dev
 
 - Dashboard: http://localhost:5173
 - Backend API: http://localhost:3000
+- API Docs: http://localhost:3000/api/docs (Swagger UI)
 
 ## Project Structure
 
@@ -131,6 +133,7 @@ bun run build
 
 ## Documentation
 
+- [OpenAPI/Swagger Documentation](http://localhost:3000/api/docs) - Interactive API testing
 - [Backend API Reference](./packages/backend/README.md)
 - See `CLAUDE.md` for development guidelines
 
