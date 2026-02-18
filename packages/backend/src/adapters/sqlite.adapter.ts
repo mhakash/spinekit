@@ -12,6 +12,13 @@ export class SQLiteAdapter implements DatabaseAdapter {
 
   constructor(private dbPath: string = "spinekit.db") {}
 
+  getDatabase(): Database {
+    if (!this.db) {
+      throw new Error("Database not connected");
+    }
+    return this.db;
+  }
+
   async connect(): Promise<void> {
     this.db = new Database(this.dbPath, { create: true });
     console.log(`✓ Connected to SQLite database: ${this.dbPath}`);
@@ -19,8 +26,8 @@ export class SQLiteAdapter implements DatabaseAdapter {
     // Enable foreign keys
     this.db.run("PRAGMA foreign_keys = ON");
 
-    // Initialize system tables
     await this.initializeSystemTables();
+    await this.initializeAuthTables();
   }
 
   async disconnect(): Promise<void> {
@@ -150,6 +157,70 @@ export class SQLiteAdapter implements DatabaseAdapter {
     `);
 
     console.log("✓ System tables initialized");
+  }
+
+  private async initializeAuthTables(): Promise<void> {
+    if (!this.db) return;
+
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS user (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        emailVerified INTEGER NOT NULL DEFAULT 0,
+        image TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      )
+    `);
+
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS session (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        token TEXT UNIQUE NOT NULL,
+        expiresAt TEXT NOT NULL,
+        ipAddress TEXT,
+        userAgent TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (userId) REFERENCES user(id) ON DELETE CASCADE
+      )
+    `);
+
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS account (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        accountId TEXT NOT NULL,
+        providerId TEXT NOT NULL,
+        accessToken TEXT,
+        refreshToken TEXT,
+        idToken TEXT,
+        expiresAt TEXT,
+        password TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (userId) REFERENCES user(id) ON DELETE CASCADE
+      )
+    `);
+
+    this.db.run(`
+      CREATE TABLE IF NOT EXISTS verification (
+        id TEXT PRIMARY KEY,
+        identifier TEXT NOT NULL,
+        value TEXT NOT NULL,
+        expiresAt TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT
+      )
+    `);
+
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_session_userId ON session(userId)`);
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_account_userId ON account(userId)`);
+    this.db.run(`CREATE INDEX IF NOT EXISTS idx_verification_identifier ON verification(identifier)`);
+
+    console.log("✓ Auth tables initialized");
   }
 
   /**

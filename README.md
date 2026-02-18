@@ -9,9 +9,11 @@ SpineKit dynamically generates REST APIs from user-defined table schemas. Create
 - **Dynamic API Generation** - Create a table, get instant REST endpoints
 - **Admin Dashboard** - Manage tables, columns, and data through a modern UI
 - **Schema Editing** - Add/remove columns, rename fields, modify constraints
+- **Authentication** - Built-in auth with cookies + Bearer tokens for headless APIs
 - **Database Agnostic** - Adapter-based design (SQLite now, Postgres/MySQL ready)
 - **Type Safe** - Full TypeScript across backend and frontend
 - **Zero Config** - Works out of the box with sensible defaults
+- **Auto Setup** - Database tables created automatically on first run
 
 ## Quick Start
 
@@ -58,6 +60,59 @@ spinekit/
 
 All tables automatically include `id`, `created_at`, and `updated_at` fields.
 
+## Authentication
+
+Built-in authentication using Better Auth with **Bearer token support** for headless API access:
+
+### Cookie-Based (Browser)
+```bash
+# Sign up
+POST /api/auth/sign-up/email
+{
+  "email": "user@example.com",
+  "password": "securePassword123!",
+  "name": "John Doe"
+}
+
+# Sign in
+POST /api/auth/sign-in/email
+{
+  "email": "user@example.com",
+  "password": "securePassword123!"
+}
+```
+
+### Bearer Token (Headless/API)
+```bash
+# Sign in and get token
+curl -X POST http://localhost:3000/api/auth/sign-in/email \
+  -H "Content-Type: application/json" \
+  -d '{"email":"user@example.com","password":"pass123"}'
+# Returns: {"token":"abc123...","user":{...}}
+
+# Use token in requests
+curl http://localhost:3000/api/posts \
+  -H "Authorization: Bearer abc123..."
+```
+
+**Frontend Example:**
+```typescript
+// Store token after sign-in
+const { token } = await fetch('/api/auth/sign-in/email', {...}).then(r => r.json());
+localStorage.setItem('auth_token', token);
+
+// Use in API requests
+fetch('/api/posts', {
+  headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+});
+```
+
+Environment variables (optional, defaults provided):
+```bash
+BETTER_AUTH_SECRET=your-32-character-secret
+BETTER_AUTH_URL=http://localhost:3000
+```
+
 ## Development
 
 ```bash
@@ -81,10 +136,10 @@ bun run build
 
 ## Tech Stack
 
-- **Backend**: Bun, Hono, SQLite, TypeScript
+- **Backend**: Bun, Hono, SQLite, Better Auth, TypeScript
 - **Frontend**: React 19, TanStack Router, TanStack Query, shadcn/ui
 - **Validation**: Zod
-- **Testing**: Bun test
+- **Testing**: Bun test (60 tests)
 
 ## License
 

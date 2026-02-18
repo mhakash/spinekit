@@ -53,6 +53,8 @@ export interface DatabaseAdapter {
   formatDefaultValue(value: any, type: string): string;
   booleanToSQL(value: boolean): number | boolean;
   booleanFromSQL(value: any): boolean;
+
+  getDatabase?(): any;
 }
 
 export interface ColumnInfo {

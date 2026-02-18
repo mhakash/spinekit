@@ -10,6 +10,8 @@ import { SchemaService } from "./services/schema.service";
 import { DataService } from "./services/data.service";
 import { createSchemaRoutes } from "./routes/schema.routes";
 import { createDataRoutes } from "./routes/data.routes";
+import { createAuth } from "./auth/auth";
+import { createAuthRoutes } from "./routes/auth.routes";
 
 const app = new Hono();
 
@@ -23,11 +25,14 @@ app.get("/health", (c) => {
 });
 
 // Initialize database and services
-const dbAdapter = new SQLiteAdapter(process.env.DB_PATH || "spinekit.db");
+const dbPath = process.env.DB_PATH || "spinekit.db";
+const dbAdapter = new SQLiteAdapter(dbPath);
 await dbAdapter.connect();
 
 const schemaService = new SchemaService(dbAdapter);
 const dataService = new DataService(dbAdapter);
+
+const auth = createAuth(dbAdapter);
 
 // API info endpoint (must be before dynamic routes)
 app.get("/api", async (c) => {
@@ -46,11 +51,11 @@ app.get("/api", async (c) => {
   });
 });
 
+app.route("/api/auth", createAuthRoutes(auth));
+
 // Admin routes - schema management
 app.route("/api/admin/schema", createSchemaRoutes(schemaService));
 
-// Dynamic routing middleware for table data
-// This allows tables created at runtime to have their routes available immediately
 const handleTableRoute = async (c: any) => {
   const tableName = c.req.param("tableName");
 
