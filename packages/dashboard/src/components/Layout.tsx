@@ -3,7 +3,7 @@
  */
 
 import { Outlet, Link, useLocation } from "react-router-dom";
-import { Database, Home, Table2 } from "lucide-react";
+import { Database, Home, Table2, BookOpen } from "lucide-react";
 
 export function Layout() {
   const location = useLocation();
@@ -40,6 +40,17 @@ export function Layout() {
               >
                 <Table2 className="h-4 w-4" />
                 Tables
+              </Link>
+              <Link
+                to="/api-docs"
+                className={`px-3 py-2 rounded-md transition-colors flex items-center gap-2 ${
+                  location.pathname.startsWith("/api-docs")
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-muted"
+                }`}
+              >
+                <BookOpen className="h-4 w-4" />
+                API Docs
               </Link>
             </nav>
           </div>
