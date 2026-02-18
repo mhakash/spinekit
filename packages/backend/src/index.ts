@@ -5,6 +5,7 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
+import { swaggerUI } from "@hono/swagger-ui";
 import { SQLiteAdapter } from "./adapters/sqlite.adapter";
 import { SchemaService } from "./services/schema.service";
 import { DataService } from "./services/data.service";
@@ -12,6 +13,7 @@ import { createSchemaRoutes } from "./routes/schema.routes";
 import { createDataRoutes } from "./routes/data.routes";
 import { createAuth } from "./auth/auth";
 import { createAuthRoutes } from "./routes/auth.routes";
+import { generateOpenAPISpec } from "./utils/openapi";
 
 const app = new Hono();
 
@@ -23,6 +25,15 @@ app.use("*", cors());
 app.get("/health", (c) => {
   return c.json({ status: "ok", timestamp: new Date().toISOString() });
 });
+
+const baseURL = process.env.BETTER_AUTH_URL || "http://localhost:3000";
+
+app.get("/api/openapi.json", async (c) => {
+  const spec = await generateOpenAPISpec(schemaService, baseURL);
+  return c.json(spec);
+});
+
+app.get("/api/docs", swaggerUI({ url: "/api/openapi.json" }));
 
 // Initialize database and services
 const dbPath = process.env.DB_PATH || "spinekit.db";
