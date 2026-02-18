@@ -36,28 +36,16 @@ export class DataService {
     const sortBy = options.sortBy || "created_at";
     const sortOrder = options.sortOrder || "desc";
 
-    // Check if table exists
-    const exists = await this.db.tableExists(tableName);
-    if (!exists) {
-      throw new Error(`Table '${tableName}' does not exist`);
-    }
+    await this.validateTableExists(tableName);
 
-    // Build WHERE clause from filters
-    const { whereClause, params } = this.buildWhereClause(options.filters || {});
+    const validColumnNames = await this.getValidColumnNames(tableName);
+    const validFilters = this.filterValidColumns(options.filters || {}, validColumnNames);
+    const validSortBy = validColumnNames.includes(sortBy) ? sortBy : "created_at";
 
-    // Get total count
-    const countSql = `SELECT COUNT(*) as count FROM ${tableName}${whereClause}`;
-    const countResult = await this.db.query<{ count: number }>(countSql, params);
-    const total = countResult[0]?.count || 0;
+    const { whereClause, params } = this.buildWhereClause(validFilters);
 
-    // Get data
-    const dataSql = `
-      SELECT * FROM ${tableName}
-      ${whereClause}
-      ORDER BY ${sortBy} ${sortOrder.toUpperCase()}
-      LIMIT ${limit} OFFSET ${offset}
-    `;
-    const data = await this.db.query(dataSql, params);
+    const total = await this.getRecordCount(tableName, whereClause, params);
+    const data = await this.fetchRecords(tableName, whereClause, params, validSortBy, sortOrder, limit, offset);
 
     return {
       data,
@@ -74,16 +62,11 @@ export class DataService {
    * Get a single record by ID
    */
   async get(tableName: string, id: string): Promise<unknown | null> {
-    const exists = await this.db.tableExists(tableName);
-    if (!exists) {
-      throw new Error(`Table '${tableName}' does not exist`);
-    }
-
+    await this.validateTableExists(tableName);
     const result = await this.db.query(
       `SELECT * FROM ${tableName} WHERE id = ?`,
       [id]
     );
-
     return result[0] || null;
   }
 
@@ -91,12 +74,8 @@ export class DataService {
    * Create a new record
    */
   async create(tableName: string, data: Record<string, unknown>): Promise<unknown> {
-    const exists = await this.db.tableExists(tableName);
-    if (!exists) {
-      throw new Error(`Table '${tableName}' does not exist`);
-    }
+    await this.validateTableExists(tableName);
 
-    // Generate ID and timestamps
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const record = {
@@ -125,20 +104,15 @@ export class DataService {
     id: string,
     data: Record<string, unknown>
   ): Promise<unknown | null> {
-    const exists = await this.db.tableExists(tableName);
-    if (!exists) {
-      throw new Error(`Table '${tableName}' does not exist`);
-    }
+    await this.validateTableExists(tableName);
 
-    // Check if record exists
     const existing = await this.get(tableName, id);
     if (!existing) {
       return null;
     }
 
-    // Build UPDATE statement
     const updates = Object.keys(data)
-      .filter((key) => key !== "id" && key !== "created_at") // Don't allow updating these
+      .filter((key) => key !== "id" && key !== "created_at")
       .map((key) => `${key} = ?`)
       .join(", ");
 
@@ -151,7 +125,6 @@ export class DataService {
 
     await this.db.execute(sql, [...values, now, id]);
 
-    // Return updated record
     return this.get(tableName, id);
   }
 
@@ -159,16 +132,11 @@ export class DataService {
    * Delete a record by ID
    */
   async delete(tableName: string, id: string): Promise<boolean> {
-    const exists = await this.db.tableExists(tableName);
-    if (!exists) {
-      throw new Error(`Table '${tableName}' does not exist`);
-    }
-
+    await this.validateTableExists(tableName);
     const result = await this.db.execute(
       `DELETE FROM ${tableName} WHERE id = ?`,
       [id]
     );
-
     return result.rowCount > 0;
   }
 
@@ -191,5 +159,74 @@ export class DataService {
       whereClause: ` WHERE ${conditions.join(" AND ")}`,
       params,
     };
+  }
+
+  /**
+   * Validate table exists
+   */
+  private async validateTableExists(tableName: string): Promise<void> {
+    const exists = await this.db.tableExists(tableName);
+    if (!exists) {
+      throw new Error(`Table '${tableName}' does not exist`);
+    }
+  }
+
+  /**
+   * Get valid column names for a table
+   */
+  private async getValidColumnNames(tableName: string): Promise<string[]> {
+    const columns = await this.db.getTableSchema(tableName);
+    return columns.map((col) => col.name);
+  }
+
+  /**
+   * Filter out invalid columns from filters
+   */
+  private filterValidColumns(
+    filters: Record<string, unknown>,
+    validColumnNames: string[]
+  ): Record<string, unknown> {
+    const validFilters: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(filters)) {
+      if (validColumnNames.includes(key)) {
+        validFilters[key] = value;
+      }
+    }
+    return validFilters;
+  }
+
+  /**
+   * Get total count of records with filters
+   */
+  private async getRecordCount(
+    tableName: string,
+    whereClause: string,
+    params: unknown[]
+  ): Promise<number> {
+    const countSql = `SELECT COUNT(*) as count FROM ${tableName}${whereClause}`;
+    const countResult = await this.db.query<{ count: number }>(countSql, params);
+    return countResult[0]?.count || 0;
+  }
+
+  /**
+   * Fetch records with sorting and pagination
+   */
+  private async fetchRecords(
+    tableName: string,
+    whereClause: string,
+    params: unknown[],
+    sortBy: string,
+    sortOrder: string,
+    limit: number,
+    offset: number
+  ): Promise<unknown[]> {
+    const sql = `
+      SELECT * FROM ${tableName}
+      ${whereClause}
+      ORDER BY ${sortBy} ${sortOrder.toUpperCase()}
+      LIMIT ? OFFSET ?
+    `;
+    const dataParams = [...params, limit, offset];
+    return await this.db.query(sql, dataParams);
   }
 }

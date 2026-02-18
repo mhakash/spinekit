@@ -17,11 +17,13 @@ export function createDataRoutes(tableName: string, dataService: DataService) {
       const sortBy = c.req.query("sortBy") || "created_at";
       const sortOrder = (c.req.query("sortOrder") || "desc") as "asc" | "desc";
 
-      // Parse filters from query params
+      // Parse all other query params as potential filters
       const filters: Record<string, unknown> = {};
       const url = new URL(c.req.url);
+      const reservedParams = ["page", "limit", "sortBy", "sortOrder"];
+      
       for (const [key, value] of url.searchParams.entries()) {
-        if (!["page", "limit", "sortBy", "sortOrder"].includes(key)) {
+        if (!reservedParams.includes(key)) {
           filters[key] = value;
         }
       }
