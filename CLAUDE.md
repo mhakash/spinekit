@@ -2,6 +2,10 @@
 
 AI development guidelines for SpineKit. Keep this file concise - detailed documentation belongs in README.md and temp/context/.
 
+## Git Workflow
+
+**IMPORTANT**: Always ask user for confirmation before creating git commits. Never commit without explicit approval.
+
 ## Project Overview
 
 Headless backend toolkit that dynamically generates REST APIs from table schemas. Monorepo with backend (Bun), dashboard (React), and shared types.
