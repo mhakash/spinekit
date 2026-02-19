@@ -38,12 +38,17 @@ export class DataService {
 
     await this.validateTableExists(tableName);
 
-    const validColumnNames = await this.getValidColumnNames(tableName);
-    const validFilters = this.filterValidColumns(options.filters || {}, validColumnNames);
-    const validSortBy = validColumnNames.includes(sortBy) ? sortBy : "created_at";
+    let validSortBy = sortBy;
+    let validFilters = options.filters || {};
+
+    // Only validate and filter columns if there are filters or custom sortBy
+    if (this.needsColumnValidation(sortBy, options.filters)) {
+      const validColumnNames = await this.getValidColumnNames(tableName);
+      validSortBy = this.getSafeColumnName(sortBy, validColumnNames, "created_at");
+      validFilters = this.filterValidColumns(options.filters || {}, validColumnNames);
+    }
 
     const { whereClause, params } = this.buildWhereClause(validFilters);
-
     const total = await this.getRecordCount(tableName, whereClause, params);
     const data = await this.fetchRecords(tableName, whereClause, params, validSortBy, sortOrder, limit, offset);
 
@@ -180,22 +185,6 @@ export class DataService {
   }
 
   /**
-   * Filter out invalid columns from filters
-   */
-  private filterValidColumns(
-    filters: Record<string, unknown>,
-    validColumnNames: string[]
-  ): Record<string, unknown> {
-    const validFilters: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(filters)) {
-      if (validColumnNames.includes(key)) {
-        validFilters[key] = value;
-      }
-    }
-    return validFilters;
-  }
-
-  /**
    * Get total count of records with filters
    */
   private async getRecordCount(
@@ -228,5 +217,41 @@ export class DataService {
     `;
     const dataParams = [...params, limit, offset];
     return await this.db.query(sql, dataParams);
+  }
+
+  /**
+   * Check if column validation is needed
+   */
+  private needsColumnValidation(sortBy: string, filters?: Record<string, unknown>): boolean {
+    const hasFilters = filters && Object.keys(filters).length > 0;
+    const hasCustomSort = sortBy !== "created_at";
+    return hasFilters || hasCustomSort;
+  }
+
+  /**
+   * Get safe column name, fallback to default if invalid
+   */
+  private getSafeColumnName(
+    columnName: string,
+    validColumnNames: string[],
+    fallback: string
+  ): string {
+    return validColumnNames.includes(columnName) ? columnName : fallback;
+  }
+
+  /**
+   * Filter out invalid columns from filters
+   */
+  private filterValidColumns(
+    filters: Record<string, unknown>,
+    validColumnNames: string[]
+  ): Record<string, unknown> {
+    const validFilters: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(filters)) {
+      if (validColumnNames.includes(key)) {
+        validFilters[key] = value;
+      }
+    }
+    return validFilters;
   }
 }
