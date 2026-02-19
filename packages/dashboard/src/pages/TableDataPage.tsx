@@ -2,7 +2,7 @@
  * Table Data Page - View and manage table records
  */
 
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { apiClient } from "@/api/client";
 import { DataTable } from "@/components/DataTable";
 
-export function TableDataPage() {
+export function Component() {
   const { tableName } = useParams<{ tableName: string }>();
 
   const { data, isLoading, error } = useQuery({

@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Plus, Trash2, Table as TableIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -14,7 +14,7 @@ import { CreateTableDialog } from "@/components/CreateTableDialog";
 import { DeleteTableDialog } from "@/components/DeleteTableDialog";
 import { toast } from "sonner";
 
-export function TablesPage() {
+export function Component() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; table: any | null }>({
     open: false,

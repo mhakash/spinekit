@@ -10,7 +10,7 @@ import "../swagger-ui-custom.css";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
-export function APITestingPage() {
+export function Component() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

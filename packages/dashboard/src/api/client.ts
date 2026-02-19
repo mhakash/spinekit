@@ -4,7 +4,8 @@
 
 import type { TableSchema, TableSchemaInput } from "@spinekit/shared";
 
-const API_BASE = import.meta.env.VITE_API_URL || "/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_PREFIX = "/api";
 
 export interface ListResponse<T = unknown> {
   data: T[];
@@ -21,7 +22,7 @@ class ApiClient {
     endpoint: string,
     options?: RequestInit
   ): Promise<T> {
-    const response = await fetch(`${API_BASE}${endpoint}`, {
+    const response = await fetch(`${API_BASE}${API_PREFIX}${endpoint}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",

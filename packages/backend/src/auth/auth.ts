@@ -17,6 +17,7 @@ export function createAuth(dbAdapter: DatabaseAdapter) {
     secret: process.env.BETTER_AUTH_SECRET || "temp-secret-key-change-in-production-min-32-chars",
     baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
     database: db,
+    trustedOrigins: ["*"],
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,

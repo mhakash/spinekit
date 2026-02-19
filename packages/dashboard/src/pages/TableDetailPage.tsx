@@ -3,7 +3,7 @@
  */
 
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Database, Table as TableIcon, Plus, Pencil, Trash2, MoreVertical, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ import type { FieldDefinition } from "@spinekit/shared";
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-export function TableDetailPage() {
+export function Component() {
   const { tableName } = useParams<{ tableName: string }>();
   const queryClient = useQueryClient();
 

@@ -19,7 +19,15 @@ const app = new Hono();
 
 // Middleware
 app.use("*", logger());
-app.use("*", cors());
+app.use(
+  "*",
+  cors({
+    origin: (origin) => origin || "*",
+    credentials: true,
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 
 // Health check
 app.get("/health", (c) => {
@@ -93,7 +101,10 @@ const handleTableRoute = async (c: any) => {
   const newRequest = new Request(url.toString(), {
     method: c.req.method,
     headers: c.req.header(),
-    body: c.req.method !== "GET" && c.req.method !== "HEAD" ? c.req.raw.body : undefined,
+    body:
+      c.req.method !== "GET" && c.req.method !== "HEAD"
+        ? c.req.raw.body
+        : undefined,
   });
 
   return dataRoutes.fetch(newRequest, c.env);
